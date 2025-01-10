@@ -14,10 +14,10 @@ using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Security.Cryptography.X509Certificates;
 
 namespace DemoFirmaCadesNet
 {
@@ -94,7 +94,7 @@ namespace DemoFirmaCadesNet
 
             CadesService cs = new CadesService();
             SignatureParameters parametros = ObtenerParametrosFirma();
-            parametros.Certificate = CertUtil.SelectCertificate();
+            parametros.Certificate = SelectCertificate();
             parametros.MimeType = MimeTypeInfo.GetMimeType(txtFichero.Text);
 
             if (rbAttachedImplicit.Checked)
@@ -158,7 +158,7 @@ namespace DemoFirmaCadesNet
                 return;
 
             SignatureParameters parametros = ObtenerParametrosFirma();
-            parametros.Certificate = CertUtil.SelectCertificate();
+            parametros.Certificate = SelectCertificate();
             parametros.SignaturePackaging = _signatureDocument.SignaturePackaging;
 
             using (parametros.Signer = new Signer((X509Certificate2)parametros.Certificate))
@@ -187,7 +187,7 @@ namespace DemoFirmaCadesNet
 
             SignatureParameters parametros = ObtenerParametrosFirma();
             parametros.SignaturePolicyInfo = null;
-            parametros.Certificate = CertUtil.SelectCertificate();
+            parametros.Certificate = SelectCertificate();
 
             using (parametros.Signer = new Signer((X509Certificate2)parametros.Certificate))
             {
@@ -271,7 +271,7 @@ namespace DemoFirmaCadesNet
                 return;
             }
 
-            parametros.Certificate = CertUtil.SelectCertificate();
+            parametros.Certificate = SelectCertificate();
             parametros.SignaturePolicyInfo = null;
             parametros.PreCalculatedDigest = digestValue;
 
@@ -284,6 +284,56 @@ namespace DemoFirmaCadesNet
 
             MessageBox.Show("Firma completada, ahora puede Guardar la firma o ampliarla a CAdES-T.", "Test firma CAdES",
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        /// <summary>
+        /// Selecciona un certificado del almacén de certificados
+        /// </summary>
+        /// <returns></returns>
+        public static X509Certificate2 SelectCertificate(string message = null, string title = null)
+        {
+            X509Certificate2 cert = null;
+
+            try
+            {
+                // Open the store of personal certificates.
+                X509Store store = new X509Store(StoreName.My, StoreLocation.CurrentUser);
+                store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
+
+                X509Certificate2Collection collection = (X509Certificate2Collection)store.Certificates;
+                X509Certificate2Collection fcollection = (X509Certificate2Collection)collection.Find(X509FindType.FindByTimeValid, DateTime.Now, false);
+
+                if (string.IsNullOrEmpty(message))
+                {
+                    message = "Seleccione un certificado.";
+                }
+
+                if (string.IsNullOrEmpty(title))
+                {
+                    title = "Firmar archivo";
+                }
+
+                X509Certificate2Collection scollection = X509Certificate2UI.SelectFromCollection(fcollection, title, message, X509SelectionFlag.SingleSelection);
+
+                if (scollection != null && scollection.Count == 1)
+                {
+                    cert = scollection[0];
+
+                    if (cert.HasPrivateKey == false)
+                    {
+                        throw new Exception("El certificado no tiene asociada una clave privada.");
+                    }
+                }
+
+                store.Close();
+            }
+            catch (Exception ex)
+            {
+                // Thx @rasputino
+                throw new Exception("No se ha podido obtener la clave privada.", ex);
+            }
+
+            return cert;
         }
     }
 }
