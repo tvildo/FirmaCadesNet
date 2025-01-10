@@ -255,7 +255,7 @@
             // 
             // saveFileDialog1
             // 
-            this.saveFileDialog1.Filter = "CSIG|*.csig";
+            this.saveFileDialog1.Filter = "CSIG|*.csig|p7m|*.p7m";
             // 
             // btnValidar
             // 

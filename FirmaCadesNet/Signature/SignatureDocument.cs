@@ -111,7 +111,10 @@ namespace FirmaCadesNet.Signature
         public SignatureDocument(CmsSignedData signedData)
         {
             _signedData = signedData;
-            _certs = CmsUtilities.GetCertificatesFromStore(_signedData.GetCertificates("Collection"));
+
+            _certs = CadesService.GetCertificatesFromStore(_signedData.GetCertificates())
+                .Select(x=>x.CertificateStructure)
+                .ToList();
             _signaturePackaging = _signedData.SignedContent != null ? SignaturePackaging.ATTACHED_IMPLICIT : SignaturePackaging.DETACHED_EXPLICIT;
             ReadSignersInfo();
         }

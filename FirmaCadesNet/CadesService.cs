@@ -21,7 +21,6 @@
 // 
 // --------------------------------------------------------------------------------------------------------------------
 
-using crypto.src.crypto.signers;
 using FirmaCadesNet.Crypto;
 using FirmaCadesNet.Signature;
 using FirmaCadesNet.Signature.Parameters;
@@ -34,6 +33,7 @@ using Org.BouncyCastle.Asn1.Pkcs;
 using Org.BouncyCastle.Asn1.X509;
 using Org.BouncyCastle.Cms;
 using Org.BouncyCastle.Crypto;
+using Org.BouncyCastle.Crypto.Signers;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Security.Certificates;
 using Org.BouncyCastle.Utilities.Collections;
@@ -43,6 +43,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using BcCms = Org.BouncyCastle.Asn1.Cms;
 
 namespace FirmaCadesNet
@@ -123,11 +124,11 @@ namespace FirmaCadesNet
             SignerInformation updatedSI = SignerInformation.AddCounterSigners(signerInfoNode.SignerInformation, result);
 
             List<X509Certificate> certs = new List<X509Certificate>();
-            IX509Store originalCertStore = sigDocument.SignedData.GetCertificates("Collection");
+            IStore<X509Certificate> originalCertStore = sigDocument.SignedData.GetCertificates();
 
             signerInfoNode.SignerInformation = updatedSI;
 
-            CollectionUtilities.AddRange(certs, GetCertificatesFromStore(originalCertStore));
+            certs.AddRange(GetCertificatesFromStore(originalCertStore));
 
             X509CertificateParser parser = new X509CertificateParser();
             var signerCertificate = parser.ReadCertificate(parameters.Certificate.GetRawCertData());
@@ -137,9 +138,9 @@ namespace FirmaCadesNet
                 certs.Add(signerCertificate);
             }
 
-            IX509Store certStore = X509StoreFactory.Create("Certificate/Collection", new X509CollectionStoreParameters(certs));
+            IStore<X509Certificate> certStore = CollectionUtilities.CreateStore(certs);
 
-            CmsSignedData newSignedData = CmsSignedData.ReplaceCertificatesAndCrls(sigDocument.SignedData, certStore, sigDocument.SignedData.GetCrls("Collection"), null);
+            CmsSignedData newSignedData = CmsSignedData.ReplaceCertificatesAndCrls(sigDocument.SignedData, certStore, sigDocument.SignedData.GetCrls(), null);
 
             return new SignatureDocument(newSignedData);
         }
@@ -207,8 +208,10 @@ namespace FirmaCadesNet
                 }
             }
 
+            var signedAttrDicObj = signedAttrDic.ToDictionary(x => x.Key, y => (object)y.Value);
+
             CmsAttributeTableGenerator signedAttrGen = new DefaultSignedAttributeTableGenerator
-                    (new Org.BouncyCastle.Asn1.Cms.AttributeTable(signedAttrDic));
+                    (new Org.BouncyCastle.Asn1.Cms.AttributeTable(signedAttrDicObj));
 
             generator.SignerProvider = signerProvider;
             generator.AddSigner(new NullPrivateKey(), signerCertificate,
@@ -223,7 +226,7 @@ namespace FirmaCadesNet
 
             if (originalSignedData != null)
             {
-                IX509Store originalCertStore = originalSignedData.GetCertificates("Collection");
+                IStore<X509Certificate> originalCertStore = originalSignedData.GetCertificates();
 
                 generator.AddCertificates(originalCertStore);
 
@@ -235,7 +238,7 @@ namespace FirmaCadesNet
                 List<X509Certificate> certs = new List<X509Certificate>();
                 certs.Add(signerCertificate);
 
-                IX509Store certStore = X509StoreFactory.Create("Certificate/Collection", new X509CollectionStoreParameters(certs));
+                IStore<X509Certificate> certStore = CollectionUtilities.CreateStore(certs);
                 generator.AddCertificates(certStore);
             }
 
@@ -247,15 +250,15 @@ namespace FirmaCadesNet
         /// </summary>
         /// <param name="certStore"></param>
         /// <returns></returns>
-        private IList GetCertificatesFromStore(IX509Store certStore)
+        public static IList<X509Certificate> GetCertificatesFromStore(IStore<X509Certificate> certStore)
         {
             try
             {
-                IList certs = new List<object>();
+                var certs = new List<X509Certificate>();
 
                 if (certStore != null)
                 {
-                    foreach (X509Certificate c in certStore.GetMatches(null))
+                    foreach (X509Certificate c in certStore.EnumerateMatches(null)) //GetMatches(null)
                     {
                         certs.Add(c);
                     }
@@ -279,11 +282,11 @@ namespace FirmaCadesNet
         /// <param name="cert"></param>
         /// <param name="certStore"></param>
         /// <returns></returns>
-        private bool CheckCertExists(X509Certificate cert, IX509Store certStore)
+        private bool CheckCertExists(X509Certificate cert, IStore<X509Certificate> certStore)
         {
             X509CertStoreSelector selector = new X509CertStoreSelector();
             selector.Certificate = cert;
-            ICollection result = certStore.GetMatches(selector);
+            var result = certStore.EnumerateMatches(selector); //GetMatches
 
             if (result == null)
             {
@@ -291,7 +294,7 @@ namespace FirmaCadesNet
             }
             else
             {
-                return result.Count > 0;
+                return result.Count() > 0;
             }
         }
 
@@ -334,8 +337,7 @@ namespace FirmaCadesNet
             }
             else
             {
-                EssCertIDv2 essCert = new EssCertIDv2(new AlgorithmIdentifier(parameters.DigestMethod
-                    .Oid), certHash, issuerSerial);
+                EssCertIDv2 essCert = new EssCertIDv2(new AlgorithmIdentifier(new DerObjectIdentifier(parameters.DigestMethod.Oid)), certHash, issuerSerial);
 
                 SigningCertificateV2 scv2 = new SigningCertificateV2(new EssCertIDv2[] { essCert }, policies);
 
@@ -351,7 +353,7 @@ namespace FirmaCadesNet
         /// <returns></returns>
         private PolicyInformation[] GetPolicyInformation(X509Certificate cert)
         {
-            byte[] certPolicies = cert.GetExtensionValue("2.5.29.32").GetOctets();
+            byte[] certPolicies = cert.GetExtensionValue(X509Extensions.CertificatePolicies).GetOctets();
 
             return CertificatePolicies.GetInstance(certPolicies).GetPolicyInformation();
         }
@@ -446,7 +448,7 @@ namespace FirmaCadesNet
         private BcCms.Attribute MakeSignaturePolicyAttribute(SignatureParameters parameters)
         {
             SignaturePolicyIdentifier sigPolicy = new SignaturePolicyIdentifier(new SignaturePolicyId(new DerObjectIdentifier
-(parameters.SignaturePolicyInfo.PolicyIdentifier), new OtherHashAlgAndValue(new AlgorithmIdentifier(parameters.SignaturePolicyInfo.PolicyDigestAlgorithm.Oid),
+(parameters.SignaturePolicyInfo.PolicyIdentifier), new OtherHashAlgAndValue(new AlgorithmIdentifier(new DerObjectIdentifier(parameters.SignaturePolicyInfo.PolicyDigestAlgorithm.Oid)),
    new DerOctetString(System.Convert.FromBase64String(parameters.SignaturePolicyInfo.PolicyHash)))));
             return new BcCms.Attribute(PkcsObjectIdentifiers.IdAAEtsSigPolicyID, new DerSet(sigPolicy));
         }
@@ -495,7 +497,12 @@ namespace FirmaCadesNet
 
             if (!string.IsNullOrEmpty(parameters.MimeType))
             {
-                ContentHints contentHints = new ContentHints(new DerObjectIdentifier(MimeTypeHelper.GetMimeTypeOid(parameters.MimeType)));
+                DerUtf8String contentDescriptionDer = new DerUtf8String("");
+                ContentHints contentHints = new ContentHints(
+                    new DerObjectIdentifier(MimeTypeHelper.GetMimeTypeOid(parameters.MimeType)),
+                    contentDescriptionDer
+                );
+
 
                 BcCms.Attribute contentAttr = new BcCms.Attribute(PkcsObjectIdentifiers.IdAAContentHint, new DerSet(contentHints));
                 signedAttrs.Add(PkcsObjectIdentifiers.IdAAContentHint, contentAttr);

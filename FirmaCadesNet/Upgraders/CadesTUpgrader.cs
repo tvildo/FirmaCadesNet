@@ -41,11 +41,11 @@ namespace FirmaCadesNet.Upgraders
         public void Upgrade(SignatureDocument signatureDocument, SignerInfoNode signerInfoNode, UpgradeParameters parameters)
         {
             BcCms.AttributeTable unsigned = signerInfoNode.SignerInformation.UnsignedAttributes;         
-            IDictionary unsignedAttrHash = null;
+            IDictionary<DerObjectIdentifier, object> unsignedAttrHash = null;
 
             if (unsigned == null)
             {
-                unsignedAttrHash = new Dictionary<DerObjectIdentifier, BcCms.Attribute>();
+                unsignedAttrHash = new Dictionary<DerObjectIdentifier, object>();
             }
             else
             {
