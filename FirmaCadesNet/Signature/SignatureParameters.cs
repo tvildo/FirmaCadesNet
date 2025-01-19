@@ -44,7 +44,7 @@ namespace FirmaCadesNet.Signature.Parameters
 
         #region Public properties
 
-        public Signer Signer { get; set; }
+        public ICadesSigner Signer { get; set; }
 
         public X509Certificate Certificate { get; set; }
 

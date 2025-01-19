@@ -28,7 +28,7 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace FirmaCadesNet.Crypto
 {
-    public class Signer : IDisposable
+    public class Signer : ICadesSigner
     {
         #region Private variables
 
@@ -45,7 +45,7 @@ namespace FirmaCadesNet.Crypto
             {
                 throw new ArgumentNullException("certificate");
             }
-            
+
             if (!certificate.HasPrivateKey)
             {
                 throw new Exception("El certificado no contiene ninguna clave privada");
@@ -63,9 +63,9 @@ namespace FirmaCadesNet.Crypto
             using (var hashAlg = digestMethod.GetHashAlgorithm())
             {
                 return _cryptoProvider.SignData(data, hashAlg);
-            }            
+            }
         }
-        
+
         public void Dispose()
         {
             if (_disposeCryptoProvider && _cryptoProvider != null)
@@ -84,7 +84,7 @@ namespace FirmaCadesNet.Crypto
 
             if (key.CspKeyContainerInfo.ProviderName == CryptoConst.MS_STRONG_PROV ||
                 key.CspKeyContainerInfo.ProviderName == CryptoConst.MS_ENHANCED_PROV ||
-                key.CspKeyContainerInfo.ProviderName == CryptoConst.MS_DEF_PROV || 
+                key.CspKeyContainerInfo.ProviderName == CryptoConst.MS_DEF_PROV ||
                 key.CspKeyContainerInfo.ProviderName == CryptoConst.MS_DEF_RSA_SCHANNEL_PROV)
             {
                 Type CspKeyContainerInfo_Type = typeof(CspKeyContainerInfo);
