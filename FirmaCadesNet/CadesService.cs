@@ -235,8 +235,20 @@ namespace FirmaCadesNet
 
             if (addSignerCert)
             {
-                List<X509Certificate> certs = new List<X509Certificate>();
-                certs.Add(signerCertificate);
+                List<X509Certificate> certs = new List<X509Certificate>
+                {
+                    signerCertificate
+                };
+
+                if (parameters.CertificateChain != null)
+                {
+                    var chainCerts = parameters.CertificateChain
+                        .Select(x => parser.ReadCertificate(x.GetRawCertData()))
+                        .Where(x => x != signerCertificate)
+                        .ToList();
+
+                    certs.AddRange(chainCerts);
+                }
 
                 IStore<X509Certificate> certStore = CollectionUtilities.CreateStore(certs);
                 generator.AddCertificates(certStore);

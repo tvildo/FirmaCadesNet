@@ -33,7 +33,7 @@ namespace FirmaCadesNet.Signature.Parameters
         DETACHED_EXPLICIT,
         ATTACHED_IMPLICIT
     }
-   
+
     public class SignatureParameters
     {
         #region Private variables
@@ -47,6 +47,8 @@ namespace FirmaCadesNet.Signature.Parameters
         public ICadesSigner Signer { get; set; }
 
         public X509Certificate Certificate { get; set; }
+
+        public IEnumerable<X509Certificate> CertificateChain { get; set; }
 
         public DigestMethod DigestMethod { get; set; }
 
@@ -65,7 +67,7 @@ namespace FirmaCadesNet.Signature.Parameters
         public SignaturePackaging SignaturePackaging { get; set; }
 
         public string MimeType { get; set; }
-        
+
         #endregion
 
         #region Constructors
